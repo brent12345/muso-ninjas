@@ -7,27 +7,51 @@
     <input type="file" @change="handleChange">
     <div class="fileError">{{ fileError }}</div>
     <div class="error"></div>
-    <button>Create</button>
+    <button v-if="!isPending">Create</button>
+    <button v-if="isPending" disabled>Saving Image...</button>
    </form>
 </template>
 <script>
 import { ref } from 'vue'
 import useStorage from '@/composables/useStorage'
+import useCollection from '@/composables/useCollection'
+import getUser from '@/composables/getUser'
+import { timeStamp } from '@/firebase/config'
+import { useRouter } from 'vue-router'
 
 export default {
     setup() {
         const { filePath, url, uploadImage } = useStorage()
-
-
+        const { error, addDoc } = useCollection('playlists')
+        const { user } = getUser()
+        const router = useRouter()
+        
         const title = ref('')
         const description = ref('')
         const file = ref('')
         const fileError = ref('')
+        const isPending = ref(false)
 
         const handleSubmit = async () => {
             if (file.value) {
+                // is pending
+                isPending.value = true
                 await uploadImage(file.value)
-                console.log('image uploaded, url: ', url.value)
+                const res = await addDoc({
+                    title: title.value,
+                    description: description.value,
+                    userId: user.value.uid,
+                    userName: user.value.displayName,
+                    coverUrl: url.value,
+                    filePath: filePath.value,
+                    songs: [],
+                    createdAt: timeStamp()
+
+                })
+                isPending.value = false
+                if (!error.value) {
+                    router.push({ name: 'PlaylistDetails', params: {id: res.id }})
+                }
             }
         }
 
@@ -46,7 +70,7 @@ export default {
                 }
         }
 
-        return { title, description, handleSubmit, handleChange, fileError }
+        return { title, description, handleSubmit, handleChange, fileError, isPending }
     }
 }
 </script>
